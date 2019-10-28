@@ -1,5 +1,11 @@
 build/
 
+compile_commands.json
+
+.GPATH
+.GRTAGS
+.GTAGS
+
 *~
 \#*#
 *.swp
