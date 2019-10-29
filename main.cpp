@@ -25,14 +25,18 @@ std::string parseTorrentFile(std::string path) {
 int getPeers() {
     // Test data.
     std::vector<std::string> ints {
-        "i3e", "i0e", "i10e", "i03e", "i003e", "i10000e", "i103e"
+        "i-3e", "i3e", "i--3e",
+        "i0e", "i-0e",
+        "i10e", "i-10e",
+        "i03e", "i03e", "i-03e", "i003e",
+        "i10000e", "i103e"
     };
 
     std::cout << std::boolalpha;
     for (const auto& i : ints) {
         BencodeNumber j = 0;
         bool b = BencodeParser(i).next<BencodeNumber>(j);
-        std::cout << j << " (" << b << ")"  << std::endl;
+        std::cout << i << "\t= " << j << " (" << b << ")"  << std::endl;
     }
 
     return 0;

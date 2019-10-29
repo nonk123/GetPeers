@@ -1,17 +1,25 @@
 #include "BencodeParser.hpp"
 
 bool BencodeParser::parseDecimal(std::string str, BencodeNumber& out) {
-    bool startsWithZero = (str[0] == '0');
+    bool negative = (str[0] == '-');
+    bool startsWithZero;
+
+    if (negative && (str.length() == 1 || (str.length() > 1 && str[1] == '0')))
+        return false;
+    else
+        startsWithZero = (str[0] == '0');
 
     if (startsWithZero) out = 0;
 
-    for (int i = startsWithZero; i < str.length(); i++)
+    for (int i = startsWithZero || negative; i < str.length(); i++)
         if (startsWithZero)
             return false;
         else if (str[i] >= '0' && str[i] <= '9')
             out = (out * 10) + (str[i] - '0');
         else
             return false;
+
+    if (negative) out = -out;
 
     return true;
 }
