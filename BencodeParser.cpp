@@ -37,7 +37,31 @@ bool BencodeParser::parse(BencodeNumber& out) {
     return (valid = parseDecimal(toParse, out));
 }
 
-// TODO: implement string, list, and dictionary parsing.
+template<>
+bool BencodeParser::parse(BencodeString& out) {
+    std::string lengthString;
+
+    while (str[pos] != ':')
+        lengthString += str[pos++];
+
+    int length = 0;
+
+    if (!parseDecimal(lengthString, length))
+        return (valid = false);
+
+    if (length < 0)
+        return (valid = false);
+
+    for (int i = 0; i < length; i++)
+        if (pos < str.length())
+            out += str[++pos];
+        else
+            return (valid = false);
+
+    return true;
+}
+
+// TODO: implement list, and dictionary parsing.
 
 template<>
 bool BencodeParser::next(BencodeString& out) {
