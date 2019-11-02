@@ -36,26 +36,33 @@ void print(const BencodeNumber& t) {
 
 template<>
 void print(const BencodeString& t) {
-    std::cout << t;
+    std::cout << "\"" << t << "\"";
 }
 
 template<>
 void print(const BencodeList& t) {
+    std::cout << "{ ";
+
     for (const auto& e : t) {
         print(e);
-        std::cout << " ";
+        std::cout << ", ";
     }
+
+    std::cout << "}";
 }
 
 template<>
 void print(const BencodeDictionary& t) {
+    std::cout << "{ ";
+
     for (const auto& p : t) {
-        std::cout << "\"";
         print(p.first);
-        std::cout << "\": \"";
+        std::cout << ": ";
         print(p.second);
-        std::cout << "\" ";
+        std::cout << ", ";
     }
+
+    std::cout << "}";
 }
 
 template<>
@@ -73,13 +80,14 @@ void print(const BencodeDynamic& t) {
 int getPeers() {
     std::cout << std::boolalpha;
     for (const auto& e : std::vector<std::string> {
-        "le", "l3:heye", "li1e1:e0:e", "li1ei2ei3ei4ei5ee",
-        "li3eli3eee"
+        "d3:hey3:youe", "di3ee", "d3:hey6:no you7:yes youi1000ee",
+        "l3:hey3:nou4:yesu7:reversee",
+        "d2:nollli10eeei20ee3:yesllleeee"
     }) {
-        BencodeList list;
-        bool b = BencodeParser(e).next(list);
+        BencodeDynamic d;
+        bool b = BencodeParser(e).next(d);
         std::cout << e << " = ";
-        print(list);
+        print(d);
         std::cout << " (" << b << ")" << std::endl;
     }
 

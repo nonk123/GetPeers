@@ -40,7 +40,7 @@ class BencodeParser {
     }
 
     template<typename T>
-    bool isNext() {
+    bool isNext() const {
         return false;
     }
 
