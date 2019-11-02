@@ -4,13 +4,25 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <any>
+#include <optional>
 
-typedef std::any BencodeDynamic;
+struct BencodeDynamic;
 typedef std::string BencodeString;
 typedef int BencodeNumber;
 typedef std::vector<BencodeDynamic> BencodeList;
 typedef std::map<BencodeString, BencodeDynamic> BencodeDictionary;
+
+struct BencodeDynamic {
+    std::optional<BencodeString> str;
+    std::optional<BencodeNumber> num;
+    std::optional<BencodeList> list;
+    std::optional<BencodeDictionary> dict;
+
+    template<typename T>
+    BencodeDynamic& operator=(const T& t) {
+        return *this;
+    }
+};
 
 class BencodeParser {
   private:
@@ -24,6 +36,11 @@ class BencodeParser {
 
     template<typename T>
     bool next(T& out) {
+        return false;
+    }
+
+    template<typename T>
+    bool isNext() {
         return false;
     }
 

@@ -1,5 +1,38 @@
 #include "BencodeParser.hpp"
 
+template<>
+BencodeDynamic& BencodeDynamic::operator=(const BencodeDynamic& t) {
+    this->str = t.str;
+    this->num = t.num;
+    this->list = t.list;
+    this->dict = t.dict;
+    return *this;
+}
+
+template<>
+BencodeDynamic& BencodeDynamic::operator=(const BencodeString& t) {
+    this->str = t;
+    return *this;
+}
+
+template<>
+BencodeDynamic& BencodeDynamic::operator=(const BencodeNumber& t) {
+    this->num = t;
+    return *this;
+}
+
+template<>
+BencodeDynamic& BencodeDynamic::operator=(const BencodeList& t) {
+    this->list = t;
+    return *this;
+}
+
+template<>
+BencodeDynamic& BencodeDynamic::operator=(const BencodeDictionary& t) {
+    this->dict = t;
+    return *this;
+}
+
 bool BencodeParser::parseDecimal(std::string str, BencodeNumber& out) {
     bool negative = (str[0] == '-');
     bool startsWithZero;
@@ -25,6 +58,32 @@ bool BencodeParser::parseDecimal(std::string str, BencodeNumber& out) {
 }
 
 template<>
+bool BencodeParser::isNext<BencodeNumber>() {
+    return str[pos] == 'i';
+}
+
+template<>
+bool BencodeParser::isNext<BencodeString>() {
+    return str[pos] >= '0' && str[pos] <= '9';
+}
+
+template<>
+bool BencodeParser::isNext<BencodeList>() {
+    return str[pos] == 'l';
+}
+
+template<>
+bool BencodeParser::isNext<BencodeDictionary>() {
+    return str[pos] == 'd';
+}
+
+template<>
+bool BencodeParser::isNext<BencodeDynamic>() {
+    return isNext<BencodeString>() || isNext<BencodeNumber>()
+        || isNext<BencodeList>()   || isNext<BencodeDictionary>();
+}
+
+template<>
 bool BencodeParser::parse(BencodeNumber& out) {
     if (str[pos++] != 'i')
         return (valid = false);
@@ -35,6 +94,13 @@ bool BencodeParser::parse(BencodeNumber& out) {
         toParse += str[pos++];
 
     return (valid = parseDecimal(toParse, out));
+}
+
+template<>
+bool BencodeParser::next(BencodeNumber& out) {
+    if (isNext<BencodeNumber>())
+        return parse<BencodeNumber>(out);
+    return false;
 }
 
 template<>
@@ -61,36 +127,82 @@ bool BencodeParser::parse(BencodeString& out) {
     return true;
 }
 
-// TODO: implement list, and dictionary parsing.
-
 template<>
 bool BencodeParser::next(BencodeString& out) {
-    if (str[pos] >= '0' && str[pos] <= '9')
+    if (isNext<BencodeString>())
         return parse<BencodeString>(out);
-    else
-        return (valid = false);
+    return false;
 }
 
 template<>
-bool BencodeParser::next(BencodeNumber& out) {
-    if (str[pos] == 'i')
-        return parse<BencodeNumber>(out);
-    else
+bool BencodeParser::next(BencodeDynamic& out);
+
+template<>
+bool BencodeParser::parse(BencodeList& out) {
+    if (str[pos] != 'l')
         return (valid = false);
+
+    while (str[++pos] != 'e') {
+        BencodeDynamic e;
+
+        if (next(e))
+            out.push_back(e);
+        else
+            return (valid = false);
+    }
+
+    return true;
 }
 
 template<>
 bool BencodeParser::next(BencodeList& out) {
-    if (str[pos] == 'l')
+    if (isNext<BencodeList>())
         return parse<BencodeList>(out);
-    else
-        return (valid = false);
+    return false;
 }
+
+// TODO: implement dictionary parsing.
 
 template<>
 bool BencodeParser::next(BencodeDictionary& out) {
-    if (str[pos] == 'd')
+    if (isNext<BencodeDictionary>())
         return parse<BencodeDictionary>(out);
-    else
+    return false;
+}
+
+template<>
+bool BencodeParser::next(BencodeDynamic& out) {
+    if (isNext<BencodeString>()) {
+        BencodeString str;
+
+        if (!next(str))
+            return (valid = false);
+
+        out = str;
+    } else if (isNext<BencodeNumber>()) {
+        BencodeNumber num = 0;
+
+        if (!next(num))
+            return (valid = false);
+
+        out = num;
+    } else if (isNext<BencodeList>()) {
+        BencodeList list;
+
+        if (!next(list))
+            return (valid = false);
+
+        out = list;
+    } else if (isNext<BencodeDictionary>()) {
+        BencodeDictionary dict;
+
+        if (!next(dict))
+            return (valid = false);
+
+        out = dict;
+    } else {
         return (valid = false);
+    }
+
+    return true;
 }
