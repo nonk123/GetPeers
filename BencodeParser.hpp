@@ -13,14 +13,24 @@ typedef std::vector<BencodeDynamic> BencodeList;
 typedef std::map<BencodeString, BencodeDynamic> BencodeDictionary;
 
 struct BencodeDynamic {
-    std::optional<BencodeString> str;
     std::optional<BencodeNumber> num;
+    std::optional<BencodeString> str;
     std::optional<BencodeList> list;
     std::optional<BencodeDictionary> dict;
 
-    template<typename T>
-    BencodeDynamic& operator=(const T& t) {
-        return *this;
+    BencodeDynamic() {
+    }
+
+    BencodeDynamic(BencodeNumber num) : num(num) {
+    }
+
+    BencodeDynamic(BencodeString str) : str(str) {
+    }
+
+    BencodeDynamic(BencodeList list) : list(list) {
+    }
+
+    BencodeDynamic(BencodeDictionary dict) : dict(dict) {
     }
 };
 
@@ -34,23 +44,11 @@ class BencodeParser {
     BencodeParser(std::string str) : str(str), pos(0), valid(true) {
     }
 
-    template<typename T>
-    bool next(T& out) {
-        return false;
-    }
-
-    template<typename T>
-    bool isNext() const {
-        return false;
-    }
-
-  private:
-    bool parseDecimal(std::string str, BencodeNumber& out);
-
-    template<typename T>
-    bool parse(T& out) {
-        return false;
-    }
+    BencodeParser& operator>>(BencodeDynamic& out);
+    BencodeParser& operator>>(BencodeNumber& out);
+    BencodeParser& operator>>(BencodeString& out);
+    BencodeParser& operator>>(BencodeList& out);
+    BencodeParser& operator>>(BencodeDictionary& out);
 };
 
 #endif

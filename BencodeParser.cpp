@@ -1,39 +1,10 @@
+#include <exception>
+
 #include "BencodeParser.hpp"
 
-template<>
-BencodeDynamic& BencodeDynamic::operator=(const BencodeDynamic& t) {
-    this->str = t.str;
-    this->num = t.num;
-    this->list = t.list;
-    this->dict = t.dict;
-    return *this;
-}
+bool parseDecimal(std::string str, BencodeNumber& out) {
+    out = 0;
 
-template<>
-BencodeDynamic& BencodeDynamic::operator=(const BencodeString& t) {
-    this->str = t;
-    return *this;
-}
-
-template<>
-BencodeDynamic& BencodeDynamic::operator=(const BencodeNumber& t) {
-    this->num = t;
-    return *this;
-}
-
-template<>
-BencodeDynamic& BencodeDynamic::operator=(const BencodeList& t) {
-    this->list = t;
-    return *this;
-}
-
-template<>
-BencodeDynamic& BencodeDynamic::operator=(const BencodeDictionary& t) {
-    this->dict = t;
-    return *this;
-}
-
-bool BencodeParser::parseDecimal(std::string str, BencodeNumber& out) {
     bool negative = (str[0] == '-');
 
     if (negative && (str.length() == 1 || (str.length() > 1 && str[1] == '0')))
@@ -41,9 +12,7 @@ bool BencodeParser::parseDecimal(std::string str, BencodeNumber& out) {
 
     bool startsWithZero = (str[0] == '0');
 
-    if (startsWithZero) out = 0;
-
-    for (int i = startsWithZero || negative; i < str.length(); i++)
+    for (std::size_t i = startsWithZero || negative; i < str.length(); i++)
         if (startsWithZero)
             return false;
         else if (str[i] >= '0' && str[i] <= '9')
@@ -56,54 +25,25 @@ bool BencodeParser::parseDecimal(std::string str, BencodeNumber& out) {
     return true;
 }
 
-template<>
-bool BencodeParser::isNext<BencodeNumber>() const {
-    return str[pos] == 'i';
-}
-
-template<>
-bool BencodeParser::isNext<BencodeString>() const {
-    return str[pos] >= '0' && str[pos] <= '9';
-}
-
-template<>
-bool BencodeParser::isNext<BencodeList>() const {
-    return str[pos] == 'l';
-}
-
-template<>
-bool BencodeParser::isNext<BencodeDictionary>() const {
-    return str[pos] == 'd';
-}
-
-template<>
-bool BencodeParser::isNext<BencodeDynamic>() const {
-    return isNext<BencodeString>() || isNext<BencodeNumber>()
-        || isNext<BencodeList>()   || isNext<BencodeDictionary>();
-}
-
-template<>
-bool BencodeParser::parse(BencodeNumber& out) {
-    if (str[pos++] != 'i')
-        return (valid = false);
+BencodeParser& BencodeParser::operator>>(BencodeNumber& out) {
+    if (str[pos] != 'i')
+        throw std::runtime_error("Not a number");
 
     std::string toParse;
 
-    while (str[pos] != 'e')
-        toParse += str[pos++];
+    while (str[++pos] != 'e')
+        toParse += str[pos];
 
-    return (valid = parseDecimal(toParse, out));
+    if (parseDecimal(toParse, out))
+        return *this;
+    else
+        throw std::runtime_error("Can't parse number: " + toParse);
 }
 
-template<>
-bool BencodeParser::next(BencodeNumber& out) {
-    if (isNext<BencodeNumber>())
-        return parse<BencodeNumber>(out);
-    return false;
-}
+BencodeParser& BencodeParser::operator>>(BencodeString& out) {
+    if (str[pos] < '0' || str[pos] > '9')
+        throw std::runtime_error("Not a string");
 
-template<>
-bool BencodeParser::parse(BencodeString& out) {
     std::string lengthString;
 
     while (str[pos] != ':')
@@ -112,120 +52,80 @@ bool BencodeParser::parse(BencodeString& out) {
     int length = 0;
 
     if (!parseDecimal(lengthString, length))
-        return (valid = false);
+        throw std::runtime_error("Can't parse string length: " + lengthString);
 
     if (length < 0)
-        return (valid = false);
+        throw std::runtime_error("Negative string length: "
+                                 + std::to_string(length));
+
+    if (pos + length > str.length())
+        throw std::length_error("String is longer than input");
 
     for (int i = 0; i < length; i++)
-        if (pos < str.length())
-            out += str[++pos];
-        else
-            return (valid = false);
+        out += str[++pos];
 
-    return true;
+    return *this;
 }
 
-template<>
-bool BencodeParser::next(BencodeString& out) {
-    if (isNext<BencodeString>())
-        return parse<BencodeString>(out);
-    return false;
-}
-
-template<>
-bool BencodeParser::next(BencodeDynamic& out);
-
-template<>
-bool BencodeParser::parse(BencodeList& out) {
+BencodeParser& BencodeParser::operator>>(BencodeList& out) {
     if (str[pos] != 'l')
-        return (valid = false);
+        throw std::runtime_error("Not a list");
 
     while (str[++pos] != 'e') {
         BencodeDynamic e;
-
-        if (next(e))
-            out.push_back(e);
-        else
-            return (valid = false);
+        *this >> e;
+        out.push_back(e);
     }
 
-    return true;
+    return *this;
 }
 
-template<>
-bool BencodeParser::next(BencodeList& out) {
-    if (isNext<BencodeList>())
-        return parse<BencodeList>(out);
-    return false;
-}
-
-template<>
-bool BencodeParser::parse(BencodeDictionary& out) {
+BencodeParser& BencodeParser::operator>>(BencodeDictionary& out) {
     if (str[pos] != 'd')
-        return (valid = false);
+        throw std::runtime_error("Not a dictionary");
 
     char keyOrder = 0;
     while (str[++pos] != 'e') {
         BencodeString key;
+        *this >> key;
 
-        if (!next(key) || key.empty() || key[0] < keyOrder)
-            return (valid = false);
+        if (key.empty())
+            throw std::runtime_error("Key is empty");
+
+        if (key[0] < keyOrder)
+            throw std::runtime_error("Key is out of order: " + key);
 
         keyOrder = key[0];
         pos++;
 
         BencodeDynamic value;
-
-        if (!next(value))
-            return (valid = false);
-
+        *this >> value;
         out.insert({key, value});
     }
 
-    return true;
+    return *this;
 }
 
-template<>
-bool BencodeParser::next(BencodeDictionary& out) {
-    if (isNext<BencodeDictionary>())
-        return parse<BencodeDictionary>(out);
-    return false;
-}
-
-template<>
-bool BencodeParser::next(BencodeDynamic& out) {
-    if (isNext<BencodeString>()) {
-        BencodeString str;
-
-        if (!next(str))
-            return (valid = false);
-
-        out = str;
-    } else if (isNext<BencodeNumber>()) {
-        BencodeNumber num = 0;
-
-        if (!next(num))
-            return (valid = false);
-
+BencodeParser& BencodeParser::operator>>(BencodeDynamic& out) {
+    if (str[pos] == 'i') {
+        BencodeNumber num;
+        *this >> num;
         out = num;
-    } else if (isNext<BencodeList>()) {
+    } else if (str[pos] >= '0' && str[pos] <= '9') {
+        BencodeString str;
+        *this >> str;
+        out = str;
+    } else if (str[pos] == 'l') {
         BencodeList list;
-
-        if (!next(list))
-            return (valid = false);
-
+        *this >> list;
         out = list;
-    } else if (isNext<BencodeDictionary>()) {
+    } else if (str[pos] == 'd') {
         BencodeDictionary dict;
-
-        if (!next(dict))
-            return (valid = false);
-
+        *this >> dict;
         out = dict;
     } else {
-        return (valid = false);
+        throw std::runtime_error("Nothing left to parse");
     }
 
-    return true;
+    return *this;
 }

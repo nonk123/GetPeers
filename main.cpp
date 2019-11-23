@@ -12,60 +12,46 @@ static std::vector<std::string> trackers {
     #include "trackers.def"
 };
 
-bool checkTracker(std::string tracker) {
-    // TODO: implement.
-    return true;
+void print(const BencodeDynamic& dynamic);
+
+void print(const BencodeNumber& num) {
+    std::cout << num;
 }
 
-std::string parseTorrentFile(std::string path) {
-    // TODO: implement.
-    return std::string();
+void print(const BencodeString& str) {
+    std::cout << "\"" << str << "\"";
 }
 
-template<typename T>
-void print(const T& t) {
-}
-
-template<>
-void print(const BencodeDynamic& t);
-
-template<>
-void print(const BencodeNumber& t) {
-    std::cout << t;
-}
-
-template<>
-void print(const BencodeString& t) {
-    std::cout << "\"" << t << "\"";
-}
-
-template<>
-void print(const BencodeList& t) {
+void print(const BencodeList& list) {
     std::cout << "{ ";
 
-    for (const auto& e : t) {
+    int index = 0;
+    for (const auto& e : list) {
         print(e);
-        std::cout << ", ";
+
+        if (++index != list.size())
+            std::cout << ", ";
     }
 
-    std::cout << "}";
+    std::cout << " }";
 }
 
-template<>
-void print(const BencodeDictionary& t) {
+void print(const BencodeDictionary& dict) {
     std::cout << "{ ";
 
-    for (const auto& p : t) {
+    int index = 0;
+    for (const auto& p : dict) {
         print(p.first);
         std::cout << ": ";
         print(p.second);
-        std::cout << ", ";
+
+        if (++index != dict.size())
+            std::cout << ", ";
     }
 
-    std::cout << "}";
+    std::cout << " }";
 }
 
-template<>
 void print(const BencodeDynamic& t) {
     if (t.str.has_value())
         print(t.str.value());
@@ -80,15 +66,16 @@ void print(const BencodeDynamic& t) {
 int getPeers() {
     std::cout << std::boolalpha;
     for (const auto& e : std::vector<std::string> {
-        "d3:hey3:youe", "di3ee", "d3:hey6:no you7:yes youi1000ee",
+        "d3:hey3:youe",
+        "d3:hey6:no you7:yes youi1000ee",
         "l3:hey3:nou4:yesu7:reversee",
         "d2:nollli10eeei20ee3:yesllleeee"
     }) {
         BencodeDynamic d;
-        bool b = BencodeParser(e).next(d);
+        BencodeParser(e) >> d;
         std::cout << e << " = ";
         print(d);
-        std::cout << " (" << b << ")" << std::endl;
+        std::cout << std::endl;
     }
 
     return 0;
